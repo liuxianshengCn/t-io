@@ -209,6 +209,8 @@ import org.tio.core.intf.AioHandler;
 import org.tio.core.intf.AioListener;
 import org.tio.core.maintain.IpBlacklist;
 import org.tio.core.ssl.SslConfig;
+import org.tio.ext.task.AssignRunnable;
+import org.tio.ext.task.NotifyRunnable;
 import org.tio.server.intf.ServerAioHandler;
 import org.tio.server.intf.ServerAioListener;
 import org.tio.utils.SysConst;
@@ -479,6 +481,13 @@ public class ServerTioConfig extends TioConfig {
 	 */
 	public ServerAioHandler getServerAioHandler() {
 		return serverAioHandler;
+	}
+
+	public void runAssgin(){
+		log.info("开始启动分配消息任务...");
+		new Thread(new AssignRunnable(this)).start();
+		log.info("开始启动通知消费消息任务...");
+		new Thread(new NotifyRunnable()).start();
 	}
 
 	/**

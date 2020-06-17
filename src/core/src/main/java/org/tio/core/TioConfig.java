@@ -324,6 +324,9 @@ public abstract class TioConfig extends MapWithLockPropSupport {
 		this(null, null);
 	}
 
+
+	public static ThreadPoolExecutor PUSH_EXECUTOR = null;
+
 	/**
 	 * 
 	 * @param tioExecutor
@@ -579,6 +582,10 @@ public abstract class TioConfig extends MapWithLockPropSupport {
 	 */
 	public void setUseQueueSend(boolean useQueueSend) {
 		this.useQueueSend = useQueueSend;
+	}
+
+	public void setPushExecutor(ThreadPoolExecutor executor){
+		TioConfig.PUSH_EXECUTOR = executor;
 	}
 
 	/**
