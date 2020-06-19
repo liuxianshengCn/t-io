@@ -6,6 +6,7 @@ import org.tio.ext.model.MsgType;
 import org.tio.ext.queue.TioMessageQueue;
 
 import java.util.HashMap;
+import java.util.UUID;
 
 public class TioMessage {
 
@@ -14,7 +15,7 @@ public class TioMessage {
     public static Object threadPoolLock = new Object();
     public static Object messagePushLock = new Object();
 
-    public static void push(MsgType type, String channel, String body){
+    public static void push(MsgType type, String channel, String actualChannel, String body){
         HashMap<MsgKey, String> msgMap = MESSAGE_QUEUE.peek();
         if(msgMap == null){
             synchronized (MESSAGE_QUEUE){
@@ -27,8 +28,13 @@ public class TioMessage {
         MsgKey msgKey = new MsgKey();
         msgKey.setType(type);
         msgKey.setChannel(channel);
+        msgKey.setActualChannel(actualChannel);
         //log.info("接收到推送消息: {}, {}", channel, body);
         msgMap.put(msgKey, body);
+    }
+
+    public static void push(MsgType type, String channel, String body){
+        push(type, channel, "", body);
     }
 
     public static void pushAll(String channcel, String body){
@@ -43,8 +49,12 @@ public class TioMessage {
         push(MsgType.GROUP, channcel, body);
     }
 
+    public static void pushActualGroup(String channcel, String actualChannel, String body){
+        push(MsgType.GROUP, channcel, actualChannel, body);
+    }
+
     public static void pushDirect(String channelId, String body){
-        push(MsgType.DIRECT, channelId, body);
+        push(MsgType.DIRECT, channelId, UUID.randomUUID().toString(), body);
     }
 
     public static boolean hasMsg(){

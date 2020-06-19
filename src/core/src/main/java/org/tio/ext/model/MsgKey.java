@@ -9,6 +9,8 @@ public class MsgKey {
 
     private String channel;
 
+    private String actualChannel;
+
     public MsgType getType() {
         return type;
     }
@@ -25,17 +27,26 @@ public class MsgKey {
         this.channel = channel;
     }
 
+    public String getActualChannel() {
+        return actualChannel;
+    }
+
+    public void setActualChannel(String actualChannel) {
+        this.actualChannel = actualChannel;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         MsgKey msgKey = (MsgKey) o;
         return type == msgKey.type &&
-                Objects.equals(channel, msgKey.channel);
+                Objects.equals(channel, msgKey.channel) &&
+                Objects.equals(actualChannel, msgKey.actualChannel);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(type, channel);
+        return Objects.hash(type, channel, actualChannel);
     }
 }

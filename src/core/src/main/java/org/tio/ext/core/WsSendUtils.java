@@ -14,6 +14,7 @@ import org.tio.ext.model.MsgResponse;
 
 import javax.net.ssl.SSLException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class WsSendUtils {
     private static final Logger log = LoggerFactory.getLogger(WsSendUtils.class);
@@ -78,9 +79,9 @@ public class WsSendUtils {
             return;
         }
 
-        WriteCompletionHandler.WriteCompletionVo writeCompletionVo = new WriteCompletionHandler.WriteCompletionVo(byteBuffer, packets);
-        channelContext.asynchronousSocketChannel.write(byteBuffer, writeCompletionVo, channelContext.writeCompletionHandler);
-       /* ReentrantLock lock = channelContext.writeCompletionHandler.lock;
+       /* WriteCompletionHandler.WriteCompletionVo writeCompletionVo = new WriteCompletionHandler.WriteCompletionVo(byteBuffer, packets);
+        channelContext.asynchronousSocketChannel.write(byteBuffer, writeCompletionVo, channelContext.writeCompletionHandler);*/
+        ReentrantLock lock = channelContext.writeCompletionHandler.lock;
         lock.lock();
         try {
             WriteCompletionHandler.WriteCompletionVo writeCompletionVo = new WriteCompletionHandler.WriteCompletionVo(byteBuffer, packets);
@@ -90,6 +91,6 @@ public class WsSendUtils {
             log.error(e.toString(), e);
         } finally {
             lock.unlock();
-        }*/
+        }
     }
 }

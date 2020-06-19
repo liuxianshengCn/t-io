@@ -52,6 +52,9 @@ public class SendRunnable implements Runnable{
                 } else if(k.getType().equals(MsgType.GROUP)){
                     //如果是组发送则需要判断当前ChannelContext是否存在组里面
                     String channel = k.getChannel();
+                    if(k.getActualChannel() != null && !"".equals(k.getActualChannel())){
+                        channel = k.getActualChannel();
+                    }
                     boolean inGroup = Tio.isInGroup(channel, context);
                     if(inGroup){
                         WsSendUtils.send(context, v);
@@ -70,7 +73,15 @@ public class SendRunnable implements Runnable{
                 } else if(k.getType().equals(MsgType.DIRECT)){
                     //如果是ChannelContext定向发送,则只需要判断是否与当前ChannelContext是否相等
                     if(context.getId().equals(k.getChannel())){
+                        if(v.indexOf("_depth_step0") > 0){
+                            log.info("盘口定向发送:{}", v);
+                        }
+                        if(v.indexOf("_trade_ticker") > 0){
+                            log.info("成交定向发送:{}", v);
+                        }
                         WsSendUtils.send(context, v);
+                    } else {
+                        log.info("定向发送ID不一致: {}, {}", context.getId());
                     }
                 }else {
                     log.error("无法找到消息类型,不发送");
