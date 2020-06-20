@@ -7,6 +7,7 @@ import org.tio.core.Tio;
 import org.tio.core.TioConfig;
 import org.tio.core.WriteCompletionHandler;
 import org.tio.core.intf.Packet;
+import org.tio.ext.TioMessage;
 import org.tio.ext.model.MPartition;
 import org.tio.ext.queue.RepeatMessagePool;
 import org.tio.ext.queue.UniqeMessagePool;
@@ -64,21 +65,27 @@ public class SendRunnable implements Runnable{
 
     private void sendGlobal(UniqeMessagePool pool, ChannelContext channelContext) {
         Map<String, Packet> pGroup = pool.get(MPartition.ALL_CONNECT);
-        pGroup.forEach((k, v) -> {
-            send(channelContext, v);
-        });
+        if (null != pGroup && !pGroup.isEmpty()) {
+            pGroup.forEach((k, v) -> {
+                send(channelContext, v);
+            });
+        }
     }
 
     private void sendGroup(UniqeMessagePool pool, ChannelContext channelContext) {
         Map<String, Packet> pGroup = pool.get(MPartition.GROUP_CONNECT);
+        if (null != pGroup && !pGroup.isEmpty()) {
+            pGroup.forEach((k, v) -> {
+                //是否存在交换地址
+                k = TioMessage.getTo(k);
 
-        pGroup.forEach((k, v) -> {
-            boolean isInGroup = Tio.isInGroup(k, channelContext);
+                boolean isInGroup = Tio.isInGroup(k, channelContext);
 
-            if (isInGroup) {
-                send(channelContext, v);
-            }
-        });
+                if (isInGroup) {
+                    send(channelContext, v);
+                }
+            });
+        }
     }
 
     private void sendToClient(RepeatMessagePool pool, ChannelContext channelContext) {

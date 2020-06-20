@@ -2,6 +2,7 @@ package org.tio.ext;
 
 
 import org.tio.core.intf.Packet;
+import org.tio.ext.core.ChannelExchange;
 import org.tio.ext.model.MPartition;
 import org.tio.ext.queue.RepeatMessagePool;
 import org.tio.ext.queue.UniqeMessagePool;
@@ -21,6 +22,26 @@ public class TioMessage {
     public static Object threadPoolLock = new Object();
     public static Object messagePushLock = new Object();
 
+    private final static ChannelExchange<String> exchange = new ChannelExchange();
+
+    /**
+     * 绑定交换区
+     * @param from
+     * @param to
+     */
+    public static void addExchange(String from, String to) {
+        exchange.addExchange(from, to);
+    }
+
+    /**
+     * 获取交换地址
+     * @param from
+     * @return
+     */
+    public static String getTo(String from) {
+        return exchange.getTo(from);
+    }
+
     /**
      * 推送全局消息，去重
      * @param packet
@@ -37,6 +58,17 @@ public class TioMessage {
      * @param packet
      */
     public static void pushToGroupUniqe(String groupId, Packet packet) {
+        UniqeMessagePool messagePool = getUnieqPool();
+        messagePool.addMessage(MPartition.GROUP_CONNECT, groupId, packet);
+        uniqeMessagePoolQueue.add(messagePool);
+    }
+
+    /**
+     * 推送组消息，去重
+     * @param groupId
+     * @param packet
+     */
+    public static void pushToGroupUniqe(String groupId, String mGroupId, Packet packet) {
         UniqeMessagePool messagePool = getUnieqPool();
         messagePool.addMessage(MPartition.GROUP_CONNECT, groupId, packet);
         uniqeMessagePoolQueue.add(messagePool);
