@@ -1,71 +1,116 @@
 package org.tio.ext;
 
 
-import org.tio.ext.model.MsgKey;
-import org.tio.ext.model.MsgType;
-import org.tio.ext.queue.TioMessageQueue;
+import org.tio.core.intf.Packet;
+import org.tio.ext.model.MPartition;
+import org.tio.ext.queue.RepeatMessagePool;
+import org.tio.ext.queue.UniqeMessagePool;
 
 import java.util.HashMap;
-import java.util.UUID;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class TioMessage {
 
-    private static TioMessageQueue<HashMap<MsgKey, String>> MESSAGE_QUEUE = new TioMessageQueue<>();
+    //去重消息队列
+    private final static Queue<UniqeMessagePool> uniqeMessagePoolQueue = new ConcurrentLinkedQueue<>();
+    //可重复消息队列
+    private final static Queue<RepeatMessagePool> repeatMessagePoolQueue = new ConcurrentLinkedQueue<>();
 
     public static Object threadPoolLock = new Object();
     public static Object messagePushLock = new Object();
 
-    public static void push(MsgType type, String channel, String actualChannel, String body){
-        HashMap<MsgKey, String> msgMap = MESSAGE_QUEUE.peek();
-        if(msgMap == null){
-            synchronized (MESSAGE_QUEUE){
-                if(msgMap == null){
-                    msgMap = new HashMap<>();
-                    MESSAGE_QUEUE.add(msgMap);
+    /**
+     * 推送全局消息，去重
+     * @param packet
+     */
+    public static void pushToAllUniqe(String channel, Packet packet) {
+        UniqeMessagePool messagePool = getUnieqPool();
+        messagePool.addMessage(MPartition.ALL_CONNECT, channel, packet);
+        uniqeMessagePoolQueue.add(messagePool);
+    }
+
+    /**
+     * 推送组消息，去重
+     * @param groupId
+     * @param packet
+     */
+    public static void pushToGroupUniqe(String groupId, Packet packet) {
+        UniqeMessagePool messagePool = getUnieqPool();
+        messagePool.addMessage(MPartition.GROUP_CONNECT, groupId, packet);
+        uniqeMessagePoolQueue.add(messagePool);
+    }
+
+    /**
+     * 推送可重复消息
+     * @param MPartition
+     * @param userId
+     * @param packet
+     */
+    public static void pushToRepeat(MPartition MPartition, String userId, Packet packet) {
+        RepeatMessagePool messagePool = getRepeatPool();
+        messagePool.addMessage(MPartition, userId, packet);
+        repeatMessagePoolQueue.add(messagePool);
+    }
+
+    /**
+     * 发送到指定客户端
+     * @param clientId
+     * @param packet
+     */
+    public static void pushToClient(String clientId, Packet packet) {
+        RepeatMessagePool messagePool = getRepeatPool();
+        messagePool.addMessage(MPartition.ID_CONNECT, clientId, packet);
+        repeatMessagePoolQueue.add(messagePool);
+    }
+
+    /**
+     * 获取去重复消息池
+     * @return
+     */
+    private static UniqeMessagePool getUnieqPool() {
+        UniqeMessagePool pool = uniqeMessagePoolQueue.poll();
+        if (null == pool) {
+            synchronized (uniqeMessagePoolQueue) {
+                pool = uniqeMessagePoolQueue.poll();
+                if (null == pool) {
+                    pool = new UniqeMessagePool<String, Packet>();
                 }
             }
         }
-        MsgKey msgKey = new MsgKey();
-        msgKey.setType(type);
-        msgKey.setChannel(channel);
-        msgKey.setActualChannel(actualChannel);
-        //log.info("接收到推送消息: {}, {}", channel, body);
-        msgMap.put(msgKey, body);
+        return pool;
     }
 
-    public static void push(MsgType type, String channel, String body){
-        push(type, channel, "", body);
+    /**
+     * 获取重复消息池
+     * @return
+     */
+    private static RepeatMessagePool getRepeatPool() {
+        RepeatMessagePool pool = repeatMessagePoolQueue.poll();
+        if (null == pool) {
+            synchronized (repeatMessagePoolQueue) {
+                pool = repeatMessagePoolQueue.poll();
+                if (null == pool) {
+                    pool = new RepeatMessagePool<String, Packet>();
+                }
+            }
+        }
+        return pool;
     }
 
-    public static void pushAll(String channcel, String body){
-        push(MsgType.GLOBAL, channcel, body);
-    }
+    public static Map<String, Object> pollAll() {
+        UniqeMessagePool uniqeMessagePool = uniqeMessagePoolQueue.poll();
+        RepeatMessagePool repeatMessagePool = repeatMessagePoolQueue.poll();
 
-    public static void pushUser(String channcel, String body){
-        push(MsgType.USER, channcel, body);
-    }
+        Map<String, Object> data = new HashMap<>();
+        if (null != data) {
+            data.put("unique", uniqeMessagePool);
+        }
+        if (null != repeatMessagePool) {
+            data.put("repeat", repeatMessagePool);
+        }
 
-    public static void pushGroup(String channcel, String body){
-        push(MsgType.GROUP, channcel, body);
-    }
-
-    public static void pushActualGroup(String channcel, String actualChannel, String body){
-        push(MsgType.GROUP, channcel, actualChannel, body);
-    }
-
-    public static void pushDirect(String channelId, String body){
-        push(MsgType.DIRECT, channelId, UUID.randomUUID().toString(), body);
-    }
-
-    public static boolean hasMsg(){
-        return MESSAGE_QUEUE.size() > 0;
-    }
-
-    public static TioMessageQueue<HashMap<MsgKey, String>> getQueue(){
-        return MESSAGE_QUEUE;
-    }
-
-    public static HashMap<MsgKey, String> poll(){
-        return MESSAGE_QUEUE.poll();
+        return data;
     }
 }

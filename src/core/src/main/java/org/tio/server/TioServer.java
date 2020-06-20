@@ -193,6 +193,14 @@
 */
 package org.tio.server;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.tio.core.Node;
+import org.tio.utils.IoUtils;
+import org.tio.utils.SysConst;
+import org.tio.utils.hutool.DateUtil;
+import org.tio.utils.hutool.StrUtil;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
@@ -209,14 +217,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.tio.core.Node;
-import org.tio.utils.IoUtils;
-import org.tio.utils.SysConst;
-import org.tio.utils.hutool.DateUtil;
-import org.tio.utils.hutool.StrUtil;
-
 /**
  * @author tanyaowu
  *
@@ -228,7 +228,7 @@ public class TioServer {
 	private AsynchronousChannelGroup		channelGroup		= null;
 	private Node							serverNode;
 	private boolean							isWaitingStop		= false;
-	private boolean							checkLastVersion	= true;
+	private boolean							checkLastVersion	= false;
 
 	/**
 	 *
@@ -464,6 +464,6 @@ public class TioServer {
 
 	public void setCheckLastVersion(boolean checkLastVersion) {
 		log.debug("community edition is no longer supported");
-		//		this.checkLastVersion = checkLastVersion;
+		this.checkLastVersion = checkLastVersion;
 	}
 }

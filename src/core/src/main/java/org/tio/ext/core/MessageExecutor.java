@@ -2,24 +2,28 @@ package org.tio.ext.core;
 
 import org.tio.core.ChannelContext;
 import org.tio.core.TioConfig;
-import org.tio.ext.model.MsgKey;
 import org.tio.ext.task.SendRunnable;
+import org.tio.utils.Threads;
+import org.tio.utils.thread.pool.SynThreadPoolExecutor;
 
-import java.util.HashMap;
+import java.util.Map;
+import java.util.Queue;
 
 public class MessageExecutor {
 
+	public static void execute(TioConfig tioConfig, Map message, Queue<ChannelContext> queue) {
 
-	public static void execute(TioConfig tioConfig, ChannelContext[] contexts, HashMap<MsgKey, String> msgMap) {
-		if(TioConfig.PUSH_EXECUTOR == null){
-			throw new IllegalArgumentException("请配置推送线程池");
-		}
-		int size = TioConfig.PUSH_EXECUTOR.getCorePoolSize();
-		if(contexts.length < TioConfig.PUSH_EXECUTOR.getCorePoolSize()){
-			size = contexts.length;
-		}
-		for (int i = 0; i < size; i++) {
-			TioConfig.PUSH_EXECUTOR.execute(new SendRunnable(tioConfig, contexts, msgMap));
+		SynThreadPoolExecutor tioExecutor = Threads.getTioExecutor();
+
+		if (null != tioExecutor) {
+			int size = queue.size();
+			if (size > tioExecutor.getCorePoolSize()) {
+				size = tioExecutor.getCorePoolSize();
+			}
+
+			for (int i = 0; i < size; i++) {
+				tioExecutor.execute(new SendRunnable(tioConfig, message, queue));
+			}
 		}
 	}
 

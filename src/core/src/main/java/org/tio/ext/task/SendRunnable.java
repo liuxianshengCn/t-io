@@ -5,93 +5,124 @@ import org.slf4j.LoggerFactory;
 import org.tio.core.ChannelContext;
 import org.tio.core.Tio;
 import org.tio.core.TioConfig;
-import org.tio.ext.core.ChannelContextCounter;
-import org.tio.ext.core.WsSendUtils;
-import org.tio.ext.model.MsgKey;
-import org.tio.ext.model.MsgType;
-import org.tio.utils.lock.SetWithLock;
+import org.tio.core.WriteCompletionHandler;
+import org.tio.core.intf.Packet;
+import org.tio.ext.model.MPartition;
+import org.tio.ext.queue.RepeatMessagePool;
+import org.tio.ext.queue.UniqeMessagePool;
 
-import java.util.HashMap;
-import java.util.Iterator;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class SendRunnable implements Runnable{
 
     private static final Logger log = LoggerFactory.getLogger(SendRunnable.class);
 
-    private ChannelContext[] contexts;
+    Queue<ChannelContext> queue;
 
-    private HashMap<MsgKey, String> msgMap;
+    private Map msgMap;
 
     private TioConfig tioConfig;
 
-    public SendRunnable(TioConfig tioConfig, ChannelContext[] contexts, HashMap<MsgKey, String> msgMap){
+    public SendRunnable(TioConfig tioConfig, Map msgMap, Queue<ChannelContext> queue){
         this.tioConfig = tioConfig;
-        this.contexts = contexts;
+        this.queue = queue;
         this.msgMap = msgMap;
     }
 
     @Override
     public void run() {
-        if(contexts == null || contexts.length <= 0){
-            return;
-        }
-        if(msgMap == null || msgMap.size() <= 0){
-            return;
-        }
+
         while (true) {
-            int index = ChannelContextCounter.get();
-            if (ChannelContextCounter.isOver()) {
+            ChannelContext context = queue.poll();
+
+            if (null == context) {
                 break;
             }
-            ChannelContext context = contexts[index];
-            //log.info(JSONUtil.objectToJsonString(msgMap) + "," + contexts.length +"发送消息成功=" + System.currentTimeMillis()+"，执行任务编号=" + index + ", ThreadName=" + Thread.currentThread().getName());
-            msgMap.forEach((k, v) ->{
-                if(k.getType().equals(MsgType.GLOBAL)){
-                    //如果是全局发送则直接发
-                    WsSendUtils.send(context, v);
-                } else if(k.getType().equals(MsgType.GROUP)){
-                    //如果是组发送则需要判断当前ChannelContext是否存在组里面
-                    String channel = k.getChannel();
-                    if(k.getActualChannel() != null && !"".equals(k.getActualChannel())){
-                        channel = k.getActualChannel();
-                    }
-                    boolean inGroup = Tio.isInGroup(channel, context);
-                    if(inGroup){
-                        WsSendUtils.send(context, v);
-                    }
-                } else if(k.getType().equals(MsgType.USER)){
-                    //如果是用户定向发送,则需要通过用户ID找出对应用户ChanncelContext,然后判断是不是当前ChannelContext,如果是则发送
-                    SetWithLock<ChannelContext> setWithLock = Tio.getByUserid(tioConfig, k.getChannel());
-                    if(setWithLock != null && setWithLock.getObj() != null && setWithLock.size() > 0){
-                        Iterator<ChannelContext> iterator = setWithLock.getObj().iterator();
-                        while (iterator.hasNext()){
-                            if(context.getId().equals(k.getChannel())){
-                                WsSendUtils.send(context, v);
-                            }
-                        }
-                    }
-                } else if(k.getType().equals(MsgType.DIRECT)){
-                    //如果是ChannelContext定向发送,则只需要判断是否与当前ChannelContext是否相等
-                    if(context.getId().equals(k.getChannel())){
-                        if(v.indexOf("_depth_step0") > 0){
-                            log.info("盘口定向发送:{}", v);
-                        }
-                        if(v.indexOf("_trade_ticker") > 0){
-                            log.info("成交定向发送:{}", v);
-                        }
-                        WsSendUtils.send(context, v);
-                    } else {
-                        log.info("定向发送ID不一致: {}, {}", context.getId());
-                    }
-                }else {
-                    log.error("无法找到消息类型,不发送");
+
+            if (msgMap.containsKey("repeat")) {
+                RepeatMessagePool repeatMessagePool = (RepeatMessagePool) msgMap.get("repeat");
+                if (null != repeatMessagePool) {
+                    sendToClient(repeatMessagePool, context);
+                    sendToUser(repeatMessagePool, context);
                 }
+            }
 
-            });
+            if (msgMap.containsKey("unique")) {
+                UniqeMessagePool uniqeMessagePool = (UniqeMessagePool) msgMap.get("unique");
+                if (null != uniqeMessagePool) {
+                    sendGlobal(uniqeMessagePool, context);
+                    sendGroup(uniqeMessagePool, context);
+                }
+            }
+        }
+    }
 
+    private void sendGlobal(UniqeMessagePool pool, ChannelContext channelContext) {
+        Map<String, Packet> pGroup = pool.get(MPartition.ALL_CONNECT);
+        pGroup.forEach((k, v) -> {
+            send(channelContext, v);
+        });
+    }
+
+    private void sendGroup(UniqeMessagePool pool, ChannelContext channelContext) {
+        Map<String, Packet> pGroup = pool.get(MPartition.GROUP_CONNECT);
+
+        pGroup.forEach((k, v) -> {
+            boolean isInGroup = Tio.isInGroup(k, channelContext);
+
+            if (isInGroup) {
+                send(channelContext, v);
+            }
+        });
+    }
+
+    private void sendToClient(RepeatMessagePool pool, ChannelContext channelContext) {
+        List<Packet> packets = pool.get(MPartition.ID_CONNECT, channelContext.getId());
+        if (null != packets && packets.size() > 0) {
+            for (Packet packet : packets) {
+                send(channelContext, packet);
+            }
+        }
+    }
+
+    private void sendToUser(RepeatMessagePool pool, ChannelContext channelContext) {
+
+        List<Packet> packets = pool.get(MPartition.BSID_CONNECT, channelContext.getBsId());
+        if (null != packets && packets.size() > 0) {
+            for (Packet packet : packets) {
+                log.info("发送用户消息：bsId = {}", channelContext.getBsId());
+                send(channelContext, packet);
+            }
+        }
+    }
+
+    private void send(ChannelContext channelContext, Packet packet) {
+        ByteBuffer byteBuffer = packet.getPreEncodedByteBuffer();
+        if (null == byteBuffer) {
+            byteBuffer = tioConfig.getAioHandler().encode(packet, tioConfig, channelContext);
         }
 
-        log.info("线程执行结束=" + Thread.currentThread().getName());
+        if (!byteBuffer.hasRemaining()) {
+            byteBuffer.flip();
+        }
+        List<Packet> packets = new ArrayList<>(1);
+        packets.add(packet);
 
+        ReentrantLock lock = channelContext.writeCompletionHandler.lock;
+        lock.lock();
+        try {
+            WriteCompletionHandler.WriteCompletionVo writeCompletionVo = new WriteCompletionHandler.WriteCompletionVo(byteBuffer, packets);
+            channelContext.asynchronousSocketChannel.write(byteBuffer, writeCompletionVo, channelContext.writeCompletionHandler);
+            channelContext.writeCompletionHandler.condition.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            lock.unlock();
+        }
     }
 }
