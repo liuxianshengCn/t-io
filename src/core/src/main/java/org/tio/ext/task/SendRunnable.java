@@ -12,10 +12,10 @@ import org.tio.ext.queue.RepeatMessagePool;
 import org.tio.ext.queue.UniqeMessagePool;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class SendRunnable implements Runnable{
@@ -110,14 +110,12 @@ public class SendRunnable implements Runnable{
         if (!byteBuffer.hasRemaining()) {
             byteBuffer.flip();
         }
-        List<Packet> packets = new ArrayList<>(1);
-        packets.add(packet);
 
         ReentrantLock lock = channelContext.writeCompletionHandler.lock;
         lock.lock();
         try {
-            WriteCompletionHandler.WriteCompletionVo writeCompletionVo = new WriteCompletionHandler.WriteCompletionVo(byteBuffer, packets);
-            channelContext.asynchronousSocketChannel.write(byteBuffer, writeCompletionVo, channelContext.writeCompletionHandler);
+            WriteCompletionHandler.WriteCompletionVo writeCompletionVo = new WriteCompletionHandler.WriteCompletionVo(byteBuffer, packet);
+            channelContext.asynchronousSocketChannel.write(byteBuffer, 100, TimeUnit.MILLISECONDS, writeCompletionVo, channelContext.writeCompletionHandler);
             channelContext.writeCompletionHandler.condition.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
