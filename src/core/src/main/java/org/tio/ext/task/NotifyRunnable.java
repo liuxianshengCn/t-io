@@ -7,7 +7,7 @@ import org.tio.utils.Threads;
 import org.tio.utils.thread.pool.SynThreadPoolExecutor;
 
 public class NotifyRunnable implements Runnable {
-
+    static Logger log							= LoggerFactory.getLogger(NotifyRunnable.class);
     private SynThreadPoolExecutor tioExecutor = null;
 
     @Override
@@ -16,18 +16,22 @@ public class NotifyRunnable implements Runnable {
         tioExecutor = Threads.getTioExecutor();
 
         while (true){
+
             try {
                 Thread.sleep(200);
+
+                if (tioExecutor.getActiveCount() <= 0) {
+                    synchronized (TioMessage.messagePushLock){
+                        TioMessage.messagePushLock.notifyAll();
+                    }
+                    synchronized (TioMessage.threadPoolLock) {
+                        TioMessage.threadPoolLock.notifyAll();
+                    }
+                }
             } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            if (tioExecutor.getActiveCount() <= 0) {
-                synchronized (TioMessage.messagePushLock){
-                    TioMessage.messagePushLock.notifyAll();
-                }
-                synchronized (TioMessage.threadPoolLock) {
-                    TioMessage.threadPoolLock.notifyAll();
-                }
+                log.error("AssignRunnable Thread InterruptedException: {}", e);
+            } catch (Exception e) {
+                log.error("AssignRunnable Thread Exception: {}", e);
             }
 
         }

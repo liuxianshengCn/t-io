@@ -28,19 +28,23 @@ public class AssignRunnable implements Runnable {
     @Override
     public void run() {
         while (true){
-            Map message = TioMessage.pollAll();
-            if (null != message) {
-                SetWithLock<ChannelContext> setWithLock = tioConfig.connections;
-                if(setWithLock != null){
-                    Set<ChannelContext> connections = setWithLock.getObj();
-                    if(connections != null && connections.size() > 0){
-                        Queue<ChannelContext> queue = new ArrayBlockingQueue(connections.size());
-                        queue.addAll(connections);
-                        MessageExecutor.execute(tioConfig, message, queue);
+            try {
+                Map message = TioMessage.pollAll();
+                if (null != message) {
+                    SetWithLock<ChannelContext> setWithLock = tioConfig.connections;
+                    if(setWithLock != null){
+                        Set<ChannelContext> connections = setWithLock.getObj();
+                        if(connections != null && connections.size() > 0){
+                            Queue<ChannelContext> queue = new ArrayBlockingQueue(connections.size());
+                            queue.addAll(connections);
+                            MessageExecutor.execute(tioConfig, message, queue);
+                        }
                     }
                 }
+                this.waitTask();
+            } catch (Exception e) {
+                log.error("AssignRunnable Thread Exception: {}", e);
             }
-            this.waitTask();
         }
     }
 
