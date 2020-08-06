@@ -50,6 +50,7 @@ public class SendRunnable implements Runnable{
                 if (null != repeatMessagePool) {
                     sendToClient(repeatMessagePool, context);
                     sendToUser(repeatMessagePool, context);
+                    sendGroup(repeatMessagePool, context);
                 }
             }
 
@@ -83,6 +84,25 @@ public class SendRunnable implements Runnable{
 
                 if (isInGroup) {
                     send(channelContext, v);
+                }
+            });
+        }
+    }
+
+    private void sendGroup(RepeatMessagePool pool, ChannelContext channelContext) {
+        Map<String, List<Packet>> pGroup = pool.get(MPartition.GROUP_CONNECT);
+        if (null != pGroup && !pGroup.isEmpty()) {
+
+            pGroup.forEach((k, v) -> {
+                //是否存在交换地址
+                k = TioMessage.getTo(k);
+
+                boolean isInGroup = Tio.isInGroup(k, channelContext);
+
+                if (isInGroup) {
+                    v.forEach(t ->{
+                        send(channelContext, t);
+                    });
                 }
             });
         }

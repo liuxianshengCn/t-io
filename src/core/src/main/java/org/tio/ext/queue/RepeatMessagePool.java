@@ -48,6 +48,15 @@ public class RepeatMessagePool<T, P> implements Serializable {
     }
 
     /**
+     * 根据类型获取消息
+     * @param key
+     * @return
+     */
+    public Map<T, List<P>> get(T key) {
+        return pool.get(key);
+    }
+
+    /**
      * 获取消息列表
      *
      * @param key
