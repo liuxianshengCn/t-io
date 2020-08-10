@@ -10,10 +10,7 @@ import org.tio.utils.Threads;
 import org.tio.utils.lock.SetWithLock;
 import org.tio.utils.thread.pool.SynThreadPoolExecutor;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 
 public class AssignRunnable implements Runnable {
@@ -34,8 +31,7 @@ public class AssignRunnable implements Runnable {
                 if (null != message) {
                     SetWithLock<ChannelContext> setWithLock = tioConfig.connections;
                     if(setWithLock != null){
-                        Set<ChannelContext> connections = setWithLock.getObj();
-                        ChannelContext[] objects = connections.toArray(new ChannelContext[connections.size()]);
+                        ChannelContext[] objects = setWithLock.getObjArrays(size -> new ChannelContext[size]);
                         if(objects != null && objects.length > 0){
                             Queue<ChannelContext> queue = new ArrayBlockingQueue(objects.length);
                             queue.addAll(Arrays.asList(objects));

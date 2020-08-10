@@ -197,6 +197,7 @@ import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -295,6 +296,23 @@ public class SetWithLock<T> extends ObjWithLock<Set<T>> {
 		try {
 			Set<T> set = this.getObj();
 			return set.size();
+		} finally {
+			readLock.unlock();
+		}
+	}
+
+	/**
+	 * 获取set列表
+	 * @param function
+	 * @return
+	 */
+	public T[] getObjArrays(Function<Integer, T[]> function) {
+		ReadLock readLock = this.readLock();
+		readLock.lock();
+		try {
+			Set<T> set = this.getObj();
+			T[] t = function.apply(set.size());
+			return set.toArray(t);
 		} finally {
 			readLock.unlock();
 		}
