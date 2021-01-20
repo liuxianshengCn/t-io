@@ -334,7 +334,7 @@ public class ServerTioConfig extends TioConfig {
 
 						for (ChannelContext channelContext : set) {
 							count++;
-							long compareTime = Math.max(channelContext.stat.latestTimeOfReceivedByte, channelContext.stat.latestTimeOfSentPacket);
+							long compareTime = channelContext.stat.latestTimeOfReceivedByte;
 							long currtime = SystemTimer.currTime;
 							long interval = currtime - compareTime;
 
