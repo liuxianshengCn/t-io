@@ -39,27 +39,31 @@ public class SendRunnable implements Runnable{
     public void run() {
 
         while (true) {
-            ChannelContext context = queue.poll();
-
-            if (null == context) {
-                break;
-            }
-
-            if (msgMap.containsKey("repeat")) {
-                RepeatMessagePool repeatMessagePool = (RepeatMessagePool) msgMap.get("repeat");
-                if (null != repeatMessagePool) {
-                    sendToClient(repeatMessagePool, context);
-                    sendToUser(repeatMessagePool, context);
-                    sendGroup(repeatMessagePool, context);
+            try {
+                ChannelContext context = queue.poll();
+                if (null == context) {
+                    break;
                 }
-            }
 
-            if (msgMap.containsKey("unique")) {
-                UniqeMessagePool uniqeMessagePool = (UniqeMessagePool) msgMap.get("unique");
-                if (null != uniqeMessagePool) {
-                    sendGlobal(uniqeMessagePool, context);
-                    sendGroup(uniqeMessagePool, context);
+                if (msgMap.containsKey("repeat")) {
+                    RepeatMessagePool repeatMessagePool = (RepeatMessagePool) msgMap.get("repeat");
+                    if (null != repeatMessagePool) {
+                        sendToClient(repeatMessagePool, context);
+                        sendToUser(repeatMessagePool, context);
+                        sendGroup(repeatMessagePool, context);
+                    }
                 }
+
+                if (msgMap.containsKey("unique")) {
+                    UniqeMessagePool uniqeMessagePool = (UniqeMessagePool) msgMap.get("unique");
+                    if (null != uniqeMessagePool) {
+                        sendGlobal(uniqeMessagePool, context);
+                        sendGroup(uniqeMessagePool, context);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                log.error("异常消息：{}", e);
             }
         }
     }
@@ -118,11 +122,12 @@ public class SendRunnable implements Runnable{
     }
 
     private void sendToUser(RepeatMessagePool pool, ChannelContext channelContext) {
-
+        if (null == channelContext.getBsId() || "".equals(channelContext.getBsId())) {
+            return;
+        }
         List<Packet> packets = pool.get(MPartition.BSID_CONNECT, channelContext.getBsId());
         if (null != packets && packets.size() > 0) {
             for (Packet packet : packets) {
-                log.info("发送用户消息：bsId = {}", channelContext.getBsId());
                 send(channelContext, packet);
             }
         }

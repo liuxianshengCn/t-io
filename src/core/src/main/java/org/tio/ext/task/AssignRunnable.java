@@ -29,13 +29,17 @@ public class AssignRunnable implements Runnable {
             try {
                 Map message = TioMessage.pollAll();
                 if (null != message) {
-                    SetWithLock<ChannelContext> setWithLock = tioConfig.connections;
-                    if(setWithLock != null){
-                        ChannelContext[] objects = setWithLock.getObjArrays(size -> new ChannelContext[size]);
-                        if(objects != null && objects.length > 0){
-                            Queue<ChannelContext> queue = new ArrayBlockingQueue(objects.length);
-                            queue.addAll(Arrays.asList(objects));
-                            MessageExecutor.execute(tioConfig, message, queue);
+                    Object repeat = message.get("repeat");
+                    Object unique = message.get("unique");
+                    if (null != repeat || null != unique) {
+                        SetWithLock<ChannelContext> setWithLock = tioConfig.connections;
+                        if(setWithLock != null){
+                            ChannelContext[] objects = setWithLock.getObjArrays(size -> new ChannelContext[size]);
+                            if(objects != null && objects.length > 0){
+                                Queue<ChannelContext> queue = new ArrayBlockingQueue(objects.length);
+                                queue.addAll(Arrays.asList(objects));
+                                MessageExecutor.execute(tioConfig, message, queue);
+                            }
                         }
                     }
                 }
